@@ -1,0 +1,101 @@
+---
+title: "Importing Redlist data"
+author: "Markus Skyttner"
+date: "05/14/2015"
+output: html_document
+---
+
+## Downloading 2015 redlist status data from web service
+
+To get redlist status information related to Dyntaxa species we use Python in `redlist.py` to retrieve XML data from a SOAP web service, keeping these specific considerations in mind:
+
+0. use https://taxonattribute.artdatabankensoa.se/TaxonAttributeService.svc
+0. login with credentials from a local configuration file to retrieve the info using a set of criteria
+0. criteria need to be combined with AND (see redlist.py code)
+0. criteria require magic numbers (undocumented, but verbally communicated from Björn), ie one needs to use the following settings:
+  * FactorIds = 743
+  * IndividualCategoryIds = 0
+  * PeriodIds = 4
+  * TaxonIds = 100145 (optional, if left out, all species will be fetched)
+
+Running `redlist.py` we get a 70 MB large `redlist-info.xml` XML-file that contains slightly cryptic information in XML which needs to be processed further and injected into the database. 
+
+## Uploading processed data to db
+
+For this purpose we use `redlist.R` which performs a number of steps:
+
+0. Removes namespace information from `redlist-info.xml` for performance reasons and calls `redlist-xml2csv.py` which quickly parses out the relevant XML paths and converts data to CSV, making the following considerations:
+  * The abbreviated (2 or 3 chars long string) redlist status is in the XML tag `FieldValue4` (src: Björn)
+  * The dyntaxa identifier is in the XML tag `TaxonId`
+1. Uses an inline reference data lookup table to translate the redlist status abbreviations to understandable text strings in Swedish and English
+0. Reads related data from the db from "The Naturalist" to determine latinname, vernacular name, linkage to identifiers used there (`taxon_uuid` visavi `dyntaxa_id`)
+0. Assembles a dataset and uploads the dataset to "The Naturalist"
+
+## How to run this migration
+
+Firstly, on a networked machine, preferably linux as `sed` is used in a system call, make sure you have  `Python` and `R` installed and that you have these files:
+
+* redlist.py (to download XML from web service)
+* redlist-xml2csv.py (to convert XML to CSV)
+* redlist.R (to process and upload redlist data to db)
+* redlist-credentials.cfg (holding your login credentials both for the web service and database)
+
+Then issue the following CLI commands from your working dir to run the download and upload steps:
+```console
+# set permissions
+chmod 600 redlist-credentials.cfg
+chmod +x redlist.R
+
+# dl data fr ws
+python redlist.py
+
+# ul data to db
+./redlist.R
+```
+
+### Installing required deps / libs for R and Python
+
+The .py files uses `suds` which is a library for making SOAP web service calls. You can find installation instructions on the web, for example see: https://stackoverflow.com/questions/2057380/installing-suds-in-python-2-6-4
+
+The .R file uses `dplyr` and `plyr` for data manipulation and `RMySQL` for db access. To install R with those packages, try:
+  
+```console
+# install Debian/Ubuntu OS deps - ie R and a mysql client library
+sudo apt-get install r-base r-base-dev libmysqlclient-dev
+
+# install dplyr and plyr packages into R system
+sudo su - -c "R -e \"install.packages(pkgs = c('dplyr', 'plyr', 'RMySQL'), repos='http://cran.rstudio.com/')\""
+```
+
+# Sources
+
+## Configurations with credentials data
+One configuration file is used, `redlist-credentials.cfg`. This is a text file with sections and name value pairs, that looks like this:
+```{r, echo=FALSE, message=FALSE, results='asis'}
+code <- readLines("redlist-credentials.cfg")
+code <- gsub("password=.*", "password=dummy", code)
+code <- gsub("pass=.*", "pass=dummy", code)
+code <- paste(collapse = "\n", code)
+cat("```console\n", code, "\n```")
+```
+
+## redlist.py
+Downloads 70 MB of XML from SOAP ws, stores it in a file.
+```{r, echo=FALSE, message=FALSE, results='asis'}
+code <- paste(collapse = "\n", readLines("redlist.py"))
+cat("```console\n", code, "\n```")
+```
+
+## redlist-xml2csv.py
+Quickly parses XML data, picking out relevant fields and converting to CSV.
+```{r, echo=FALSE, message=FALSE, results='asis'}
+code <- paste(collapse = "\n", readLines("redlist-xml2csv.py"))
+cat("```console\n", code, "\n```")
+```
+
+## redlist.R
+Cleans, decorates, processes data and uploads it into "redlist_2015" db table
+```{r, echo=FALSE, message=FALSE, results='asis'}
+code <- paste(collapse = "\n", readLines("redlist.R"))
+cat("```console\n", code, "\n```")
+```
