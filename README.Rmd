@@ -1,0 +1,55 @@
+---
+title: "dinar"
+author: "Markus Skyttner"
+date: "`r Sys.Date()`"
+output:
+  md_document:
+    variant: markdown_github
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+
+[![Build Status](https://travis-ci.org/DINA-Web/dinar.svg)](https://travis-ci.org/ropensci/rfishbase)
+
+Welcome to `dinar`. This package provides an R interface to the DINA-Web APIs.
+
+```{r include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, comment=NA)
+```
+
+## Installation
+
+```{r message=FALSE, warning=FALSE, results="hide", eval=FALSE}
+#install.packages("dinar", 
+#  repos = c("http://packages.ropensci.org", "http://cran.rstudio.com"),  type="source")
+```
+
+
+```{r message=FALSE, warning=FALSE, results="hide"}
+library(dinar)
+```
+
+## Getting started
+
+
+[DINA-Web](http://dina-project.net) is a Free and Open-Source digital Natural History Collections management system for the Web. It provides REST APIs providing access to collections data and the `dinar` R-package provides an R client or interface to these APIs.
+
+### Getting data
+
+Here is an example of getting "institution" data from the API and printing the response:
+
+```{r}
+library(dinar)
+
+res <- dw_get(dw_api(path = "institution"))
+print(res)
+
+```
+
+Here are the collections and an example of printing the names of those.
+
+```{r}
+collections <- dw_get(dw_api(path = "collection"))
+collections$content$collectionName
+```

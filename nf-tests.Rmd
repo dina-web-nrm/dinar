@@ -1,0 +1,97 @@
+library("httr")
+library("dplyr")
+library("rvest")
+
+# How much time does it take to load images
+
+prod <- function(id) 
+  paste0("https://dina-web.net/naturalist/species/", id)
+
+test <- function(id) 
+  paste0("http://test.naturforskaren.se/nf-naturalist/species/", id)
+
+id <- "6ab5dc2b-05e8-4480-bb8f-681b7d688387"  # lepidoptera
+id <- "454a0c69-df59-4a2f-b44d-242f4f397f75"  # coleoptera
+
+# Hieroglyfpraktmal
+id <- "9424f65b-dbaa-4b96-b25c-4f0e2a1ecb0c"
+
+find_ids <- function(x) 
+  grep(".*(.{8}-.{4}-.{4}-.{4}-.{12}).*", x, perl = TRUE, value = TRUE)       
+
+get_links <- function(url) {
+  res <- 
+    read_html(url) %>%
+    html_nodes("img") %>%
+    html_attr("src") %>%
+    find_ids()
+  return (res)
+}
+
+p1 <- get_links(test(id))
+t1 <- get_links(prod(id))
+
+is_equally_many_images <- function(prod, test) {
+  re <- ".*(.{8}-.{4}-.{4}-.{4}-.{12}).*"
+  p1 <- gsub(re, "\\1", prod)
+  p2 <- length(unique(p1))
+  t1 <- gsub(re, "\\1", test)  
+  t2 <- length(unique(t1))
+  if (p2 != t2)
+    message("not equally many different images for urls: ", prod, test)
+}
+
+is_invalid_last_image <- function(prod, test) {
+  p1 <- prod[length(prod)]
+  re <- ".*(.{8}-.{4}-.{4}-.{4}-.{12}).*"
+  p2 <- gsub(re, "\\1", p1)
+  t1 <- test[length(test)]
+  t2 <- gsub(re, "\\1", t1)
+  if (t2 != p2)
+    message("prod: ", p2, " != test: ", t2, " for urls: ", prod, test)
+}
+
+is_invalid_last_image(p1, t1)
+is_equally_many_images(p1, t1)
+
+
+
+
+read_html(paste0("https://dina-web.net/naturalist/search/", "lepidoptera")) %>%
+  html_nodes("div #speciesListData") %>%
+  html_nodes("ul")
+
+  find_ids()
+
+
+  butterflies %>% 
+    html_nodes("a") %>%
+    html_attr("href")
+
+  butterflies %>% 
+#    html_nodes("li") %>%
+    html_attr("data-taxonid")
+  
+  
+cast <- lego_movie %>%
+  html_nodes("#titleCast .itemprop span") %>%
+  html_text()
+
+
+prod(id)
+test(id)
+
+str(htm)
+htm <- content(GET(prod(id), )
+
+grepl(".{8}-.{4}-.{4}-.{4}-.{12}", htm)               
+
+get_identifiers <- function(src, identifier) {
+  
+}
+
+get_image_links <- function(src, identifier) {
+  
+  htm <- content(GET()
+  
+}

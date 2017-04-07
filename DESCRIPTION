@@ -1,0 +1,27 @@
+Package: dinar
+Title: R Interface to DINA-Web Providing Data Migration CLI Tools
+Version: 0.0.0.9000
+Authors@R: person("Markus", "Skyttner", email = "markus.skyttner@example.com", role = c("aut", "cre"))
+Description: This package provides data migration tools for DINA-Web
+    for purposes such as automating data cleaning, transformation
+    and loading of data.
+Depends:
+    R (>= 3.0)
+License: LICENSE
+URL: https://github.com/DINA-Web/dinar
+BugReports: https://github.com/DINA-Web/dinar/issues
+Encoding: UTF-8
+LazyData: true
+Imports:
+    dplyr,
+    tidyr,
+    httr,
+    jsonlite,
+    crayon,
+    xml2
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat
+VignetteBuilder: knitr
+RoxygenNote: 6.0.1

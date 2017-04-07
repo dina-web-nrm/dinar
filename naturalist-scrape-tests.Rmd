@@ -1,0 +1,101 @@
+---
+title: "Media Tests - scraping media from The Naturalist"
+output: html_document
+---
+
+```{r message=FALSE}
+# load utility functions for scraping
+# note the def of Test and Prod servers
+# are in the file below
+source("naturalist-scrape.R")
+```
+
+You can compare identifiers used for a specific species across Test and Prod like so:
+
+```{r message=FALSE}
+
+lepidoptera <- "6ab5dc2b-05e8-4480-bb8f-681b7d688387"  # lepidoptera
+coleoptera <- "454a0c69-df59-4a2f-b44d-242f4f397f75"  # coleoptera
+
+lepidoptera %>%
+  build_prod_identifier %>%
+  children_identifiers %>%
+  data_frame
+
+coleoptera %>%
+  build_prod_identifier %>%
+  children_identifiers %>%
+  data_frame
+
+```
+
+You could retrieve a set of at least 5 identifiers under Lepidoptera and Coleoptera like this
+
+
+```{r message=FALSE}
+
+sample_ids <- data_frame()
+butterflies <- sample_identifiers(lepidoptera, sample_ids)
+print(butterflies)
+
+#sample_ids <- data_frame()
+#bugs <- sample_identifiers(coleoptera, sample_ids)
+#print(bugs)
+
+```
+
+You could compare if identifiers differ (the set of taxa) across Test and Prod:
+
+```{r}
+# are nearest child taxa of coleoptera the same in prod vs test?
+diff_children(coleoptera)
+diff_children(lepidoptera)
+```
+
+We use a specific taxon and compare the Test and Prod data. We start out by targeting one specific identifier:
+
+```{r message=FALSE}
+
+# we use a specific identifier
+hieroglyphmoth <- "9424f65b-dbaa-4b96-b25c-4f0e2a1ecb0c"
+
+# what is the prod uri?
+hieroglyphmoth %>% 
+  prod_page
+
+# what is the test uri?
+hieroglyphmoth %>% 
+  test_page
+
+# does it have children?
+hieroglyphmoth %>%
+  build_prod_identifier %>%
+  children_identifiers
+
+# what are the unique images on test that contain "img/cc"?
+hieroglyphmoth %>%
+  test_page %>%
+  img_src %>%
+  filter_fixed("img/cc") %>%
+  unique
+```
+
+For the same specific taxon we can automate some comparisons across Test and Prod:
+
+```{r message=FALSE}
+
+# now we do comparisions across Test and prod
+
+# Do cc icons differ?
+diff_cc(hieroglyphmoth)
+
+# Does the image count differ?
+diff_image_count(hieroglyphmoth)
+
+# Do the image labels differ?
+diff_image_labels(hieroglyphmoth)
+
+# Is the last image a map?
+is_last_image_map(hieroglyphmoth)
+
+```

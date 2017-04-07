@@ -1,0 +1,101 @@
+---
+title: "Tutorial for the dinar R-package"
+author: "Markus Skyttner"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    fig.caption: yes
+vignette: >
+  %\VignetteIndexEntry{"Tutorial for dinar"}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The dinar R-package provides ways and means for working with DINA-Web data using R.
+
+  - Using the DINA-Web REST APIs
+
+## Authentication
+
+Before being able to access data, authentication is required.
+
+```{r}
+
+library(dinar)
+
+authenticated <- dw_login("john doe", "passw0rd12")
+
+if (authenticated)
+  colls <- dw_get_collections()
+
+colls$collectionName
+
+```
+
+## Typical usage
+
+### Creating a database with a specific name
+
+Use the Makefile, "make db", for this.
+
+This functionality is not exposed in the Collections API.
+
+### Creating institutions, divisions, disciplines, collections
+
+The institutional hierarchy can be configured using the API.
+
+    - How to get an existing division and create a new one based on that one.
+
+```{r, eval = FALSE}
+
+# creating a collection with required depnedent objects
+
+# an example of valid json to crate a collectionobject
+coll2 <- readLines("newcollection2.json", warn = FALSE, encoding = "utf8")
+coll2
+
+# auto-unbox and use "null" for null provides "round-trip"
+coll2a <- prettify(toJSON(fromJSON(coll2), auto_unbox = TRUE, null = "null"))
+coll2a
+
+read_valid_json <- function(x) 
+  readLines(x, warn = FALSE, encoding = "utf8")
+
+c2json <- function(json) 
+  prettify(toJSON(json, auto_unbox = TRUE, null = "null"))
+
+roundtrip_json <- function(json) 
+  c2json(fromJSON(json))
+
+
+coll3 <- read_valid_json("newcollection3.json")
+coll3a <- roundtrip_json(coll3)
+
+coll4 <- read_valid_json("newcollection4.json")
+coll4a <- roundtrip_json(coll4)
+
+coll4a <- fromJSON(coll4a)
+coll4a$collectionName <- "Gbg Zoology"
+coll4a <- 
+  c2json(coll4a)
+
+coll_endpoint <-  modify_url(dw_api(), path = "collections/v0/collection")
+
+#newcollection2.json creates one collection, along with a discipline, division and institution
+
+dw_post(url = coll_endpoint, json = coll4a)
+
+dw_get_institutions()
+dw_get_division()
+dw_get_disciplines()
+dw_get_collections()
+
+# newcollection3.json adds another one, with new discipline, division but not institution
+division <- "Naturhistoriska Museet"
+discipline <- c("Entomology", "Invertebrate Zoology")
+collections <- c("Ento", "Everte")
+
+#newcollection4.json adds a new institution, too
+institution <- "GNM"
+```
+
