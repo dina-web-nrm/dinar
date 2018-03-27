@@ -69,7 +69,8 @@ from
               group by taxon_uuid, language) tt on tt.page_id = tp.id
 order by
   page_id asc, taxon_uuid asc, sort_order asc"
-    
+
+
 link <- as_tibble(collect(dbGetQuery(con, link_query)))
 poolClose(pool)
 
@@ -116,19 +117,26 @@ mt <-
     original_title_link
   )
 
-birds <-   
-  mt %>% filter(nchar(copyright_owner_link) > 0) %>% 
-  arrange(taxon_uuid, url, sortOrder) #%>%
-#  select(url, taxon_uuid, copyright_owner_link, original_title, original_title_link)
-
-#birds %>% distinct(copyright_owner_link)
-
-#browseURL(birds$url[1])  
-
+# taxa with no "copyright_owner_link" ordered by their sort order
 #  select uuid, original_title_link from media where original_title_link is not null group by uuid, original_title_link;
 
-birds <- 
-  birds %>% rename(
+# uuids2 <- 
+#   mt %>% 
+#   filter(nchar(copyright_owner_link) == 0) %>% 
+#   arrange(taxon_uuid, sortOrder) %>%
+#   select(taxon_uuid) %>% .$taxon_uuid
+# 
+# birds <-   
+#   mt %>% 
+#   filter(taxon_uuid %in% uuids2) %>% 
+#   arrange(taxon_uuid, sortOrder)
+# 
+# View(birds)
+# 
+# birds_uuids <- unique(birds$taxon_uuid)
+
+taxa <- 
+  mt %>% rename(
     legend = original_title, 
     owner = copyrightOwner, 
     fileNameWExt = fileName
@@ -139,7 +147,7 @@ birds <-
   ) %>% distinct()
 
 # downloadMedia(birds$url, birds$mime)
-
+#birds %>% head(5)
 
 media_download <- function(df, .pb = NULL) {
   if (.pb$i < .pb$n) .pb$tick()$print()
@@ -149,25 +157,31 @@ media_download <- function(df, .pb = NULL) {
   tibble(success = res == 0, path = fileName)
 }
 
-df <- birds #%>% slice(1:3)
+message("Count of distinct taxa: ",
+  df %>% summarize(count = n_distinct(taxon_uuid))
+)
+
+message("Count of distinct media: ",
+  df %>% summarize(count = n_distinct(fileNameWExt))
+)
+
+# if not using all taxa, here the list of taxa can be changed
+# given uuids taken from a file
+checklist <- readr::read_csv("~/.cache/R/lost_taxa.csv")
+df <- taxa %>% filter(taxon_uuid %in% checklist$uuid)
 pb <- progress_estimated(nrow(df), 0)
 dls <- media_download(df, .pb = pb)
 
-#dls <- 
-#  tibble(fileName = dir("/tmp/RtmpbXvZlI", full.names = TRUE)) %>%
-#  mutate(fileNameWExt = gsub("/tmp/RtmpbXvZlI/(.*?)([.].*)", "\\1", fileName))
-
-dls2 <- 
+dls <- 
   dls %>% select(fileName = path) %>%
-  mutate(fileNameWExt = gsub("/tmp/RtmpnsflCr/(.*?)([.].*)", "\\1", fileName))
+  mutate(fileNameWExt = gsub("/tmp/Rtmpm2qVY2/(.*?)([.].*)", "\\1", fileName))
 
 
-df <- birds %>% inner_join(dls2)
+df <- taxa %>% inner_join(dls)
 
 #browseURL(dls$path[3])
 
 dest_url <- "https://beta-media.dina-web.net/MediaServerResteasy/media/upload-file/base64"
-#dest_url2 <- "http://thinkpad.nrm.se:8080/MediaServerResteasy/media/upload-file/base64"
 
 library(httr)
 library(caTools)
@@ -216,8 +230,7 @@ media_post <- function(destination,
   return (content(res, as = "text", encoding = "UTF-8"))
 }
 
-#  birds %>% filter(taxon_uuid == "004e6a45-c480-4420-9fcb-8225279094c0")
-
+# post all the images to the image server
 res <- 
   df %>%
   rowwise() %>%
@@ -228,51 +241,6 @@ res <-
     copyright_owner_link = copyright_owner_link, 
     original_title_link = original_title_link, 
     original_title = legend))
-
-#saveRDS(res, "~/repos/dina-web/naturalist-docker/res.Rda")
-
-#rest <- res %>% slice(499:593)
-#rest <- res %>% slice(498)
-#final_res <- res %>% slice(1:498) %>% bind_rows(res2)
-#View(final_res)
-
-# clean dupes in mediadb looking at HASH
-
-pool <- dbPool(
-  drv = RMySQL::MySQL(),
-  dbname = "nf_media",
-  host = "127.0.0.1",
-  port = 13306,
-  username = "mediaserver",
-  password = rstudioapi::askForPassword() #   password = Sys.getenv("DINAPASS")
-)
-
-con <- poolCheckout(pool)
-dbGetQuery(con,'SET NAMES utf8')
-media_query <- "select * from MEDIA;"
-dupes <- as_tibble(collect(dbGetQuery(con, media_query)))
-poolClose(pool)
-
-temp <- 
-  dupes %>% group_by(HASH) %>% summarize(count = n()) %>% filter(count > 2) %>%
-  inner_join(dupes) %>% filter(count < 10) %>% arrange(desc(count)) %>%
-  filter(OWNER != "Bert Gustafsson") %>%
-  filter(!UUID %in% c("519aea58-fe73-4fef-9379-0978c2f668f4", "79851449-26af-4c40-a57f-9cd73f751fc5"))
-
-delete_det <- paste0("delete from DETERMINATION where MEDIA_UUID='", temp$UUID, "';")
-delete_med <- paste0("delete from MEDIA where UUID='", temp$UUID, "';")
-delete_lic <- paste0("delete from MEDIA_X_LIC where MEDIA_ID='", temp$UUID, "';")
-delete_img <- paste0("delete from IMAGE where UUID='", temp$UUID, "';")
-delete_tag <- paste0("delete from TAGS where MEDIA_UUID='", temp$UUID, "';")
-
-con <- poolCheckout(pool)
-dbGetQuery(con,'SET NAMES utf8')
-map(delete_det, function(x) dbGetQuery(con, x))
-map(delete_lic, function(x) dbGetQuery(con, x))
-map(delete_img, function(x) dbGetQuery(con, x))
-map(delete_tag, function(x) dbGetQuery(con, x))
-map(delete_med, function(x) dbGetQuery(con, x))
-poolClose(pool)
 
 media_taxon_link <- function(src_url, taxon_uuid, media_ids) {
 
@@ -302,11 +270,7 @@ media_taxon_link <- function(src_url, taxon_uuid, media_ids) {
   return(res)
 }
 
-#dupes %>% #filter(grepl("/tmp/", FILENAME)) %>% #slice(1) %>% t()
-#  mutate(uuid = gsub("/tmp/RtmpbXvZlI/(.*?)[.].*", "\\1", FILENAME)) %>%
-#  filter(HASH == "00cc9486cffcc1eee650b541a9ad66bb")
-
-#dupes %>% filter(grepl("/tmp/", FILENAME)) %>% group_by(HASH) %>% summarize(count = n()) %>% filter(count > 1)
+# link taxon uuids to new media uuids in media server
 
 mtl <- function(x) list(
   taxon_uuid = x, 
@@ -322,32 +286,26 @@ linkz_log <- map(linkz, function(x) media_taxon_link(
   )
 )
 
-# are all with just one media_id actually not linked?
 # errorz <- linkz[which(linkz_log == "ERROR")]
-# 
-# errorz_linkz_log <- map(errorz[2:22], function(x) media_taxon_link(
-#   src_url = "https://naturforskaren.se",
-#   taxon_uuid = x$taxon_uuid,
-#   media_ids = x$media_ids
-#   )
-# )
+#saveRDS(linkz, file = "~/repos/dina-web/naturalist-docker/linkz.Rda")
 
-# sanity checks... inspecting a few taxon uuids
+# fix errors in RESTFUL_STREAM fields in MEDIA table (doubled sla)
 
-browse_uuids <- paste0( # gräsand! # björn!
-  "https://beta-naturforskaren.dina-web.net/nf-naturalist/species/", c(
-  "fcffabdc-501e-489a-88af-fbd19d758dce", # Sorgmantel
-  "66118ad5-919b-4347-8981-e0944e6646f7", # Sävvårtbitare
-  "3301bf9b-68c8-453f-b32d-8e99ba423290", # Mörkspräcklig hornmal
-  "2d5a6de0-e1c5-44cf-be16-044645d2a1c7", # Kohornsmal
-  "d8d88968-3282-4efc-9614-28e59a13ee69", # musslor
-  "6e18dcd9-a549-469d-8d9b-ee0f336b545a", # mård
-  "e373547f-6f0d-42c4-9b40-7f7215e2c25f", # hopprätvingar
-  "56a83aa5-ac19-4d79-a1ad-32eb3aaf506e", # björn
-  "263f8ef2-e085-408f-90b1-e6e4decfc4cb", # fjällämmel
-  "1e90b156-00f9-4e73-a018-8ab67db956f5" # hasselmus
-))
+pool <- dbPool(
+  drv = RMySQL::MySQL(),
+  dbname = "nf_media",
+  host = "127.0.0.1",
+  port = 13306,
+  username = "mediaserver",
+  password = rstudioapi::askForPassword() #   password = Sys.getenv("DINAPASS")
+)
 
-map(browse_uuids, browseURL)
+con <- poolCheckout(pool)
+dbGetQuery(con,'SET NAMES utf8')
+query_fix <- "update MEDIA
+set RESTFUL_STREAM = REPLACE(RESTFUL_STREAM, 'media/stream//', 'media/stream/')
+where RESTFUL_STREAM LIKE 'media/stream//%';"
+dbGetQuery(con, query_fix)
+poolClose(pool)
 
 if (!interactive()) q(status = 0)
